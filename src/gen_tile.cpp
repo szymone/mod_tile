@@ -247,16 +247,21 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
     map->map.resize(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
     map->map.zoom_to_box(tile2prjbounds(map->prj, x, y, z));
     if (map->map.buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
-        map->map.set_buffer_size((map->tilesize >> 1) * map->scale);
+        map->map.set_buffer_size(map->tilesize >> 1);
     }
+    map->map.set_buffer_size(map->map.buffer_size() * map->scale);
     //m.zoom(size+1);
+
+    mapnik::request req(map->map.width(), map->map.height(), map->map.get_current_extent());
+    req.set_buffer_size(map->map.buffer_size());
+    mapnik::attributes vars({{"zoom", static_cast<mapnik::value_integer>(z)}, {"scale", static_cast<mapnik::value_integer>(map->scale)}});
 
     mapnik::image_32 buf(render_size_tx*map->tilesize, render_size_ty*map->tilesize);
     try {
         Map map_parameterized = map->map; 
         if (map->parameterize_function) 
             map->parameterize_function(map_parameterized, options); 
-        mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized,buf,map->scale);
+        mapnik::agg_renderer<mapnik::image_32> ren(map_parameterized,req,vars,buf,map->scale,0,0);
         ren.apply();
     } catch (std::exception const& ex) {
       syslog(LOG_ERR, "ERROR: failed to render TILE %s %d %d-%d %d-%d", map->xmlname, z, x, x+render_size_tx-1, y, y+render_size_ty-1);
