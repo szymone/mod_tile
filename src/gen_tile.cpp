@@ -249,7 +249,6 @@ static enum protoCmd render(struct xmlmapconfig * map, int x, int y, int z, char
     if (map->map.buffer_size() == 0) { // Only set buffer size if the buffer size isn't explicitly set in the mapnik stylesheet.
         map->map.set_buffer_size(map->tilesize >> 1);
     }
-    map->map.set_buffer_size(map->map.buffer_size() * map->scale);
     //m.zoom(size+1);
 
     mapnik::request req(map->map.width(), map->map.height(), map->map.get_current_extent());
@@ -366,6 +365,7 @@ void *render_thread(void * arg)
 
             try {
                 mapnik::load_map(maps[iMaxConfigs].map, maps[iMaxConfigs].xmlfile);
+                maps[iMaxConfigs].map.set_buffer_size(maps[iMaxConfigs].map.buffer_size() * maps[iMaxConfigs].scale);
                 /* If we have more than 10 rendering threads configured, we need to fix
                  * up the mapnik datasources to support larger postgres connection pools
                  */
