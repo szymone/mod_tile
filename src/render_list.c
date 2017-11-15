@@ -253,16 +253,15 @@ int main(int argc, char **argv)
         while(!feof(stdin)) {
             int n = fscanf(stdin, "%d %d %d", &x, &y, &z);
 
-            if (verbose)
-
-
             if (n != 3) {
                 // Discard input line
-                char tmp[1024];
-                char *r = fgets(tmp, sizeof(tmp), stdin);
-                if (!r)
-                    continue;
-                fprintf(stderr, "bad line %d: %s", num_all, tmp);
+                if (verbose) {
+                    char tmp[1024];
+                    char *r = fgets(tmp, sizeof(tmp), stdin);
+                    if (!r)
+                        continue;
+                    fprintf(stderr, "bad line %d: %s", num_all, tmp);
+                }
                 continue;
             }
 
