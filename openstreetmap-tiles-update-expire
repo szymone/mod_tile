@@ -12,9 +12,10 @@ ACCOUNT=renderaccount
 cd /home/$ACCOUNT/src/mod_tile/
 
 #------------------------------------------------------------------------------
-# The OSM2PGSQL_OPTIONS here only need setting if a tag transform script is
+# Extra OSM2PGSQL_OPTIONS may need setting if a tag transform script is
 # in use.  See https://github.com/SomeoneElseOSM/SomeoneElse-style and
 # http://wiki.openstreetmap.org/wiki/User:SomeoneElse/Ubuntu_1404_tileserver_load
+# The database name always needs setting.
 #------------------------------------------------------------------------------
 OSMOSIS_BIN=osmosis
 OSM2PGSQL_BIN=osm2pgsql
@@ -22,7 +23,12 @@ TRIM_BIN=/home/$ACCOUNT/src/regional/trim_osc.py
 
 DBNAME=gis
 OSM2PGSQL_OPTIONS="-d $DBNAME"
-#OSM2PGSQL_OPTIONS="--flat-nodes /path/to/flatnodes --hstore"
+#------------------------------------------------------------------------------
+# When using trim_osc.py we can define either a bounding box (such as this
+# example for England and Wales) or a polygon.
+# See https://github.com/zverik/regional .
+# This area will usually correspond to the data originally loaded.
+#------------------------------------------------------------------------------
 TRIM_OPTIONS="-d $DBNAME"
 TRIM_REGION_OPTIONS="-b -14.17 48.85 2.12 61.27"
 #TRIM_REGION_OPTIONS="-p region.poly"
@@ -140,11 +146,6 @@ fi
         m_error "Osmosis error"
     fi
     
-# -----------------------------------------------------------------------------
-# Add trim_osc.py call from https://github.com/zverik/regional
-# The parameters passed correspond to the middle of England and Wales, and
-# to the data that was originally loaded.
-# -----------------------------------------------------------------------------
 m_ok "filtering diff"
 if ! $TRIM_BIN $TRIM_OPTIONS $TRIM_REGION_OPTIONS  -z $CHANGE_FILE $CHANGE_FILE 1>&2 2>> "$RUNLOG"; then
     m_error "Trim_osc error"
@@ -173,7 +174,7 @@ fi
     m_ok "expiring tiles"
 #------------------------------------------------------------------------------
 # When expiring tiles we need to define the style sheet if it's not "default".
-# in this case it's "ajt".
+# In this case it's "ajt".
 # Previously all tiles on the "dirty" list between $EXPIRY_MINZOOM and 
 # $EXPIRY_MAXZOOM were dirtied.  We currently re-render 
 # tiles >= $EXPIRY_MINZOOM and < $EXPIRY_DELETEFROM, expiry from 14 and 
@@ -185,8 +186,12 @@ fi
     fi
 
     rm "$EXPIRY_FILE.$$"
-
-    freelock "$LOCK_FILE"
+ 
+#------------------------------------------------------------------------------
+# Only remove the lock file after expiry (if system is slow we want to delay
+# the next import, not have multiple render_expired processes running)    
+#------------------------------------------------------------------------------
+   freelock "$LOCK_FILE"
    
     m_ok "Done with import"
     
