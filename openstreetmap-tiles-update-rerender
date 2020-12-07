@@ -8,17 +8,30 @@ set -e
 # Change the actual location to wherever installed locally.
 #------------------------------------------------------------------------------
 export PATH=.:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-cd /home/renderaccount/src/mod_tile/
+ACCOUNT=renderaccount
+cd /home/$ACCOUNT/src/mod_tile/
 
 #------------------------------------------------------------------------------
-# The OSM2PGSQL_OPTIONS here only need setting if a tag transform script is
+# Extra OSM2PGSQL_OPTIONS may need setting if a tag transform script is
 # in use.  See https://github.com/SomeoneElseOSM/SomeoneElse-style and
 # http://wiki.openstreetmap.org/wiki/User:SomeoneElse/Ubuntu_1404_tileserver_load
+# The database name always needs setting.
 #------------------------------------------------------------------------------
 OSMOSIS_BIN=osmosis
 OSM2PGSQL_BIN=osm2pgsql
-OSM2PGSQL_OPTIONS="-d gis"
-#OSM2PGSQL_OPTIONS="--flat-nodes /path/to/flatnodes --hstore"
+TRIM_BIN=/home/$ACCOUNT/src/regional/trim_osc.py
+
+DBNAME=gis
+OSM2PGSQL_OPTIONS="-d $DBNAME"
+#------------------------------------------------------------------------------
+# When using trim_osc.py we can define either a bounding box (such as this
+# example for England and Wales) or a polygon.
+# See https://github.com/zverik/regional .
+# This area will usually correspond to the data originally loaded.
+#------------------------------------------------------------------------------
+TRIM_OPTIONS="-d $DBNAME"
+TRIM_REGION_OPTIONS="-b -14.17 48.85 2.12 61.27"
+#TRIM_REGION_OPTIONS="-p region.poly"
 
 BASE_DIR=/var/lib/mod_tile
 LOG_DIR=/var/log/tiles/
@@ -96,7 +109,9 @@ if [ $# -eq 1 ] ; then
     m_info "Initialising Osmosis replication system to $1"
     mkdir $WORKOSM_DIR
     $OSMOSIS_BIN --read-replication-interval-init workingDirectory=$WORKOSM_DIR 1>&2 2> "$OSMOSISLOG"
-    wget "http://osm.personalwerk.de/replicate-sequences/?"$1"T00:00:00Z" -O $WORKOSM_DIR/state.txt
+    wget "http://replicate-sequences.osm.mazdermind.de/?"$1"T00:00:00Z" -O $WORKOSM_DIR/state.txt
+    mv $WORKOSM_DIR/configuration.txt $WORKOSM_DIR/configuration_orig.txt
+    sed "s!baseUrl=http://planet.openstreetmap.org/replication/minute!baseUrl=https://planet.openstreetmap.org/replication/minute!" $WORKOSM_DIR/configuration_orig.txt > $WORKOSM_DIR/configuration.txt
 else
 # make sure the lockfile is removed when we exit and then claim it
 
@@ -131,13 +146,8 @@ fi
         m_error "Osmosis error"
     fi
     
-# -----------------------------------------------------------------------------
-# Add trim_osc.py call from https://github.com/zverik/regional
-# The parameters passed correspond to the middle of England and Wales, and
-# to the data that was originally loaded.
-# -----------------------------------------------------------------------------
 m_ok "filtering diff"
-if ! /home/renderaccount/src/regional/trim_osc.py -d gis -b -14.17 48.85 2.12 61.27 -z $CHANGE_FILE $CHANGE_FILE 1>&2 2>> "$RUNLOG"; then
+if ! $TRIM_BIN $TRIM_OPTIONS $TRIM_REGION_OPTIONS  -z $CHANGE_FILE $CHANGE_FILE 1>&2 2>> "$RUNLOG"; then
     m_error "Trim_osc error"
 fi
 
